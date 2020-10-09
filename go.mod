@@ -12,6 +12,7 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/jasonlvhit/gocron v0.0.0-20191007145845-57f89394836a // indirect
 	github.com/labstack/echo/v4 v4.1.17
+	github.com/lestrrat-go/jwx v1.0.5
 	github.com/mdp/qrterminal/v3 v3.0.0
 	github.com/nuts-foundation/nuts-crypto v0.15.1-0.20201006091925-0a8d72d37433
 	github.com/nuts-foundation/nuts-go-core v0.15.0
