@@ -1,3 +1,21 @@
+/*
+ * Nuts auth
+ * Copyright (C) 2020. Nuts community
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package oauth
 
 import (
@@ -21,9 +39,10 @@ import (
 	"github.com/nuts-foundation/nuts-auth/pkg/services"
 )
 
-var _ services.AccessTokenHandler = (*OAuthService)(nil)
-
 const oauthKeyQualifier = "oauth"
+
+// OauthBearerTokenMaxValidity is the number of seconds that a bearer token is valid
+const OauthBearerTokenMaxValidity = 5
 
 var ErrMissingVendorID = errors.New("missing VendorID")
 
@@ -117,6 +136,8 @@ func (s *OAuthService) ParseAndValidateJwtBearerToken(acString string) (*service
 
 	if token != nil && token.Valid {
 		if claims, ok := token.Claims.(*services.NutsJwtBearerToken); ok {
+			// this should be ok since it has already succeeded before
+			claims.SigningCertificate, _ = getCertificateFromHeaders(token)
 			return claims, nil
 		}
 	}

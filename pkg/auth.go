@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	irmaService "github.com/nuts-foundation/nuts-auth/pkg/services/irma"
 	"github.com/nuts-foundation/nuts-auth/pkg/services/oauth"
 	nutscrypto "github.com/nuts-foundation/nuts-crypto/pkg"
+	"github.com/nuts-foundation/nuts-crypto/pkg/cert"
 	cryptoTypes "github.com/nuts-foundation/nuts-crypto/pkg/types"
 	core "github.com/nuts-foundation/nuts-go-core"
 	registry "github.com/nuts-foundation/nuts-registry/pkg"
@@ -294,15 +296,56 @@ func (auth *Auth) ValidateContract(request services.ValidationRequest) (*service
 	return nil, fmt.Errorf("format %v: %w", request.ContractFormat, contract.ErrUnknownContractFormat)
 }
 
+// ErrTokenValidityToLong is returned when the difference between a JWT's exp and iat field is to large
+var ErrTokenValidityToLong = errors.New("JWT validity too long")
+
+const errInvalidIssuerFmt = "invalid jwt.issuer: %w"
+
+// todo move to oauth pkg?
+// todo split in validate and create?
 // CreateAccessToken extracts the claims out of the request, checks the validity and builds the access token
 func (auth *Auth) CreateAccessToken(request services.CreateAccessTokenRequest) (*services.AccessTokenResult, error) {
-	// extract the JwtBearerToken
+	// extract the JwtBearerToken, validates according to RFC003 §5.2.1.1
+	// also check if used algorithms are according to spec (ES*** and PS***)
+	// and checks basic validity
 	jwtBearerToken, err := auth.AccessTokenHandler.ParseAndValidateJwtBearerToken(request.RawJwtBearerToken)
 	if err != nil {
 		return nil, fmt.Errorf("jwt bearer token validation failed: %w", err)
 	}
 
-	// Validate the AuthTokenContainer
+	validationTime := time.Unix(jwtBearerToken.IssuedAt, 0)
+
+	// check the actor against the registry, according to RFC003 §5.2.1.3
+	partyID, err := core.ParsePartyID(jwtBearerToken.Issuer)
+	if err != nil {
+		return nil, fmt.Errorf(errInvalidIssuerFmt, err)
+	}
+	actor, err := auth.Registry.OrganizationById(partyID)
+	if err != nil {
+		return nil, fmt.Errorf(errInvalidIssuerFmt, err)
+	}
+	iss, err := auth.Registry.VendorById(actor.Vendor)
+	if err != nil {
+		return nil, fmt.Errorf(errInvalidIssuerFmt, err)
+	}
+	// todo this only gets current certs, it may need to retrieve an older one?
+	// todo move to crypto: IsCertSignedByVendor?
+	vCerts := cert.GetActiveCertificates(iss.Keys, validationTime)
+	pool := x509.NewCertPool()
+	for _, c := range vCerts {
+		pool.AddCert(c)
+	}
+
+	if _, err := jwtBearerToken.SigningCertificate.Verify(x509.VerifyOptions{Roots: pool, CurrentTime: validationTime}); err != nil {
+		return nil, fmt.Errorf("issuer and signer mismatch: %w", err)
+	}
+
+	// check the maximum validity, according to RFC003 §5.2.1.4
+	if jwtBearerToken.ExpiresAt-jwtBearerToken.IssuedAt > oauth.OauthBearerTokenMaxValidity {
+		return nil, ErrTokenValidityToLong
+	}
+
+	// Validate the AuthTokenContainer, according to RFC003 §5.2.1.5
 	res, err := auth.ContractValidator.ValidateJwt(jwtBearerToken.AuthTokenContainer, request.VendorIdentifier)
 	if err != nil {
 		return nil, fmt.Errorf("identity token validation failed: %w", err)
@@ -310,6 +353,12 @@ func (auth *Auth) CreateAccessToken(request services.CreateAccessTokenRequest) (
 	if res.ValidationResult == services.Invalid {
 		return nil, fmt.Errorf("identity validation failed")
 	}
+
+	// validate the endpoint in aud, according to RFC003 §5.2.1.6
+	// the aud field must have the identifier of the endpoint registered by the vendor of this node!
+
+	// validate the legal base, according to RFC003 §5.2.1.7 is sid is present
+	// use consent store
 
 	accessToken, err := auth.AccessTokenHandler.BuildAccessToken(jwtBearerToken, res)
 	if err != nil {
