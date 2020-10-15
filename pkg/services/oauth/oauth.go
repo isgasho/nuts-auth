@@ -84,7 +84,7 @@ func (s *OAuthService) CreateJwtBearerToken(request *services.CreateJwtBearerTok
 
 // ParseAndValidateJwtBearerToken validates the jwt signature and returns the containing claims
 func (s *OAuthService) ParseAndValidateJwtBearerToken(acString string) (*services.NutsJwtBearerToken, error) {
-	parser := &jwt.Parser{ValidMethods: []string{jwt.SigningMethodRS256.Name}}
+	parser := &jwt.Parser{ValidMethods: []string{jwt.SigningMethodRS256.Name, jwt.SigningMethodPS256.Name}}
 	token, err := parser.ParseWithClaims(acString, &services.NutsJwtBearerToken{}, func(token *jwt.Token) (i interface{}, e error) {
 		legalEntity, err := parseTokenIssuer(token.Claims.(*services.NutsJwtBearerToken).Issuer)
 		if err != nil {
@@ -102,7 +102,9 @@ func (s *OAuthService) ParseAndValidateJwtBearerToken(acString string) (*service
 			return nil, err
 		}
 
-		return pk.Materialize()
+		var key interface{}
+		err = pk.Raw(&key)
+		return key, err
 	})
 
 	if token != nil && token.Valid {
@@ -116,7 +118,7 @@ func (s *OAuthService) ParseAndValidateJwtBearerToken(acString string) (*service
 
 // ParseAndValidateAccessToken parses and validates an accesstoken string and returns a filled in NutsAccessToken.
 func (s *OAuthService) ParseAndValidateAccessToken(accessToken string) (*services.NutsAccessToken, error) {
-	parser := &jwt.Parser{ValidMethods: []string{jwt.SigningMethodRS256.Name}}
+	parser := &jwt.Parser{ValidMethods: []string{jwt.SigningMethodRS256.Name, jwt.SigningMethodPS256.Name}}
 	token, err := parser.ParseWithClaims(accessToken, &services.NutsAccessToken{}, func(token *jwt.Token) (i interface{}, e error) {
 		// Check if the care provider which signed the token is managed by this node
 		if !s.Crypto.PrivateKeyExists(s.oauthKeyEntity) {

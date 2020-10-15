@@ -78,7 +78,7 @@ func (v IrmaService) ValidateContract(b64EncodedContract string, format services
 
 // ValidateJwt validates a JWT formatted identity token
 func (v IrmaService) ValidateJwt(token string, actingPartyCN string) (*services.ContractValidationResult, error) {
-	parser := &jwt.Parser{ValidMethods: []string{jwt.SigningMethodRS256.Name}}
+	parser := &jwt.Parser{ValidMethods: []string{jwt.SigningMethodRS256.Name, jwt.SigningMethodPS256.Name}}
 	parsedToken, err := parser.ParseWithClaims(token, &services.NutsIdentityToken{}, func(token *jwt.Token) (i interface{}, e error) {
 		legalEntity, err := parseTokenIssuer(token.Claims.(*services.NutsIdentityToken).Issuer)
 		if err != nil {
@@ -92,12 +92,13 @@ func (v IrmaService) ValidateJwt(token string, actingPartyCN string) (*services.
 		}
 
 		pk, err := org.CurrentPublicKey()
-
 		if err != nil {
 			return nil, err
 		}
 
-		return pk.Materialize()
+		var key interface{}
+		err = pk.Raw(&key)
+		return key, err
 	})
 
 	if err != nil {

@@ -14,10 +14,10 @@ require (
 	github.com/labstack/echo/v4 v4.1.17
 	github.com/lestrrat-go/jwx v1.0.5
 	github.com/mdp/qrterminal/v3 v3.0.0
-	github.com/nuts-foundation/nuts-crypto v0.15.1-0.20201006091925-0a8d72d37433
+	github.com/nuts-foundation/nuts-crypto v0.15.1-0.20201015073554-cbeeb24605c8
 	github.com/nuts-foundation/nuts-go-core v0.15.0
 	github.com/nuts-foundation/nuts-go-test v0.15.0
-	github.com/nuts-foundation/nuts-registry v0.15.0
+	github.com/nuts-foundation/nuts-registry v0.15.1-0.20201015100433-bc6155ea4602
 	github.com/pkg/errors v0.9.1
 	github.com/privacybydesign/gabi v0.0.0-20200805114803-588904629b25 // indirect
 	github.com/privacybydesign/irmago v0.5.1
